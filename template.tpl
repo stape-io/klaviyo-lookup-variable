@@ -138,7 +138,7 @@ if (_kx) {
       headers: {
         'Authorization': 'Klaviyo-API-Key ' + data.apiKey,
         'accept': 'application/json',
-        'revision': '2024-07-15',
+        'revision': '2025-10-15',
       },
       timeout: 3000,
     }).then((result) => {
