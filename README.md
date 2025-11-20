@@ -1,9 +1,3 @@
-# Klaviyo Lookup Variable for Google Tag Manager Server Container
-
-Here is the content formatted as a Markdown file, suitable for a GitHub repository README.
-
----
-
 # Klaviyo Lookup Variable for GTM Server Side
 
 This Google Tag Manager Server-Side variable allows you to retrieve a user profile from Klaviyo using the identifier (`_kx`). It enriches your server-side data with user information such as email, phone number, and address.

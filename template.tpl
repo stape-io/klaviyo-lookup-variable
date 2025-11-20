@@ -136,56 +136,60 @@ if (_kx) {
 
     return sendHttpGet(url, {
       headers: {
-        'Authorization': 'Klaviyo-API-Key ' + data.apiKey,
-        'accept': 'application/json',
-        'revision': '2025-10-15',
+        Authorization: 'Klaviyo-API-Key ' + data.apiKey,
+        accept: 'application/json',
+        revision: '2025-10-15',
       },
       timeout: 3000,
-    }).then((result) => {
-      if (isLoggingEnabled) {
-        logToConsole(
-          JSON.stringify({
-            Name: 'KlaviyoLookup',
-            Type: 'Response',
-            TraceId: traceId,
-            EventName: 'Lookup',
-            ResponseStatusCode: result.statusCode,
-            ResponseHeaders: result.headers,
-            ResponseBody: result.body,
-          })
-        );
-      }
-
-      if (result.statusCode === 200) {
-        const responseBody = JSON.parse(result.body);
-        if (responseBody.data.length === 1) {
-          const attributes = responseBody.data[0].attributes;
-          const klaviyo_user_data = {
-            'email': toLowerCaseIfDefined(attributes.email),
-            'phone_number': attributes.phone_number,
-            'address': [{
-              'first_name': toLowerCaseIfDefined(attributes.first_name),
-              'last_name': toLowerCaseIfDefined(attributes.last_name),
-            }]
-          };
-          if (attributes.location) {
-            klaviyo_user_data.address[0].street = toLowerCaseIfDefined(attributes.location.address1);
-            klaviyo_user_data.address[0].city = toLowerCaseIfDefined(attributes.location.city);
-            klaviyo_user_data.address[0].postal_code = attributes.location.zip;
-            klaviyo_user_data.address[0].country = toLowerCaseIfDefined(attributes.location.country);
-          }
-          templateDataStorage.setItemCopy(_kx, JSON.stringify(klaviyo_user_data));
-
-          if (data.output === 'email') {
-            return klaviyo_user_data.email;
-          }
-
-          return klaviyo_user_data;
+    })
+      .then((result) => {
+        if (isLoggingEnabled) {
+          logToConsole(
+            JSON.stringify({
+              Name: 'KlaviyoLookup',
+              Type: 'Response',
+              TraceId: traceId,
+              EventName: 'Lookup',
+              ResponseStatusCode: result.statusCode,
+              ResponseHeaders: result.headers,
+              ResponseBody: result.body,
+            })
+          );
         }
-      }
 
-      return undefined;
-    }).catch(() => undefined);
+        if (result.statusCode === 200) {
+          const responseBody = JSON.parse(result.body);
+          if (responseBody.data.length === 1) {
+            const attributes = responseBody.data[0].attributes;
+            const klaviyo_user_data = {
+              email: toLowerCaseIfDefined(attributes.email),
+              phone_number: attributes.phone_number,
+              address: [
+                {
+                  first_name: toLowerCaseIfDefined(attributes.first_name),
+                  last_name: toLowerCaseIfDefined(attributes.last_name),
+                },
+              ],
+            };
+            if (attributes.location) {
+              klaviyo_user_data.address[0].street = toLowerCaseIfDefined(attributes.location.address1);
+              klaviyo_user_data.address[0].city = toLowerCaseIfDefined(attributes.location.city);
+              klaviyo_user_data.address[0].postal_code = attributes.location.zip;
+              klaviyo_user_data.address[0].country = toLowerCaseIfDefined(attributes.location.country);
+            }
+            templateDataStorage.setItemCopy(_kx, JSON.stringify(klaviyo_user_data));
+
+            if (data.output === 'email') {
+              return klaviyo_user_data.email;
+            }
+
+            return klaviyo_user_data;
+          }
+        }
+
+        return undefined;
+      })
+      .catch(() => undefined);
   }
 }
 
