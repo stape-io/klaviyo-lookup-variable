@@ -1,6 +1,6 @@
 homepage: 'https://stape.io/'
 versions:
-  - sha: 65673b964a173b8d4d2a8b78a57cace469921e06
+  - sha: 2feed167015326d52e1b4f3c26ef130ff58f90ec
     changeNotes: Version Bump 2025-10-15.
   - sha: 4efcca9d246eb726d29de2554a09225c76b0a80e
     changeNotes: Initial release.
