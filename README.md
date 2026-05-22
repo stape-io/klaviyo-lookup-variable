@@ -16,10 +16,6 @@ This Google Tag Manager Server-Side variable allows you to retrieve a user profi
 - **Output**: Select the type of data to return:
   - _Email_: Returns only the user's email address string.
   - _All user_data_: Returns a JSON object containing the user profile.
-- **Logs Settings**: Control logging behavior:
-  - _Do not log_: No logs are generated.
-  - _Log to console during debug and preview_: Logs only when GTM is in debug/preview mode.
-  - _Always log to console_: Logs requests and responses regardless of the environment.
 
 ## Returned Data Structure
 
@@ -46,7 +42,7 @@ If **All user_data** is selected, the variable returns an object containing the 
 
 Initial development was done by [Lars Friis](https://www.linkedin.com/in/lars-friis/).
 
-Klaviyo Lookup Variable for GTM Server Side is developing and maintained by [Stape Team](https://stape.io/) under the Apache 2.0 license.
+Klaviyo Lookup Variable for GTM Server Side is developed and maintained by [Stape Team](https://stape.io/) under the Apache 2.0 license.
 
 ### GTM Gallery Status
 🟢 [Listed](https://tagmanager.google.com/gallery/#/owners/stape-io/templates/klaviyo-lookup-variable)
