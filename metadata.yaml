@@ -1,6 +1,8 @@
 homepage: 'https://stape.io/'
 documentation: 'https://github.com/stape-io/klaviyo-lookup-variable'
 versions:
+  - sha: 77d3bd2d296f525bed3cd751037ce682b5154b84
+    changeNotes: Console logging removal. Update API version to 2026-04-15.
   - sha: 3db76eeff889c660c16f743ccc2699aad2a4627c
     changeNotes: Version Bump 2025-10-15.
   - sha: 4efcca9d246eb726d29de2554a09225c76b0a80e
