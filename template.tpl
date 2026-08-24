@@ -14,7 +14,7 @@ ___INFO___
   "version": 1,
   "securityGroups": [],
   "displayName": "Klaviyo Lookup",
-  "description": "Retrieve the user profile from Klaviyo using the identifier (_kx).",
+  "description": "Retrieve the user profile from Klaviyo using the identifier Klaviyo Exchange ID (_kx).",
   "containerContexts": [
     "SERVER"
   ]
@@ -27,13 +27,14 @@ ___TEMPLATE_PARAMETERS___
   {
     "type": "TEXT",
     "name": "apiKey",
-    "displayName": "Api Key",
+    "displayName": "Private API Key",
     "simpleValueType": true,
     "valueValidators": [
       {
         "type": "NON_EMPTY"
       }
-    ]
+    ],
+    "help": "Follow this guide if you don\u0027t know \u003ca href\u003d\"https://help.klaviyo.com/hc/en-us/articles/115005062267-How-to-Manage-Your-Account-s-API-Keys#find-your-api-keys1\" target\u003d\"_blank\"\u003eHow to Find your API Key\u003c/a\u003e"
   },
   {
     "type": "RADIO",
@@ -46,7 +47,7 @@ ___TEMPLATE_PARAMETERS___
       },
       {
         "value": "user_data",
-        "displayValue": "All user_data"
+        "displayValue": "All User Data"
       }
     ],
     "simpleValueType": true
@@ -57,6 +58,7 @@ ___TEMPLATE_PARAMETERS___
 ___SANDBOXED_JS_FOR_SERVER___
 
 const encodeUriComponent = require('encodeUriComponent');
+const fromBase64 = require('fromBase64');
 const getCookieValues = require('getCookieValues');
 const getEventData = require('getEventData');
 const getType = require('getType');
@@ -69,80 +71,88 @@ const templateDataStorage = require('templateDataStorage');
 /*==============================================================================
 ==============================================================================*/
 
-const API_VERSION = '2026-04-15';
-let _kx = '';
-const pageUrl = getEventData('page_location');
+const API_VERSION = '2026-07-15';
+const _kx = parseKx();
 
-if (pageUrl && pageUrl.indexOf('_kx=') !== -1) {
-  const parsedUrl = parseUrl(pageUrl);
-  _kx = parsedUrl.searchParams._kx;
+if (!_kx) return undefined;
+
+let storedData = templateDataStorage.getItemCopy(_kx);
+if (storedData) {
+  storedData = JSON.parse(storedData);
+  if (data.output === 'email') {
+    return storedData.email;
+  }
+  return storedData;
 } else {
-  let kxCookie = getCookieValues('stape_klaviyo_kx');
-  if (kxCookie.length) _kx = kxCookie[0];
+  const requestUrl = 'https://a.klaviyo.com/api/profiles/?filter=equals(_kx,"' + enc(_kx) + '")';
+  return sendHttpGet(requestUrl, {
+    headers: {
+      Authorization: 'Klaviyo-API-Key ' + data.apiKey,
+      accept: 'application/json',
+      revision: API_VERSION
+    },
+    timeout: 3000
+  })
+    .then((result) => {
+      if (result.statusCode === 200) {
+        const responseBody = JSON.parse(result.body);
+        if (responseBody.data.length === 1) {
+          const attributes = responseBody.data[0].attributes;
+          const klaviyo_user_data = {
+            email: toLowerCaseIfDefined(attributes.email),
+            phone_number: attributes.phone_number,
+            address: [
+              {
+                first_name: toLowerCaseIfDefined(attributes.first_name),
+                last_name: toLowerCaseIfDefined(attributes.last_name)
+              }
+            ]
+          };
+          if (attributes.location) {
+            klaviyo_user_data.address[0].street = toLowerCaseIfDefined(
+              attributes.location.address1
+            );
+            klaviyo_user_data.address[0].city = toLowerCaseIfDefined(attributes.location.city);
+            klaviyo_user_data.address[0].postal_code = attributes.location.zip;
+            klaviyo_user_data.address[0].country = toLowerCaseIfDefined(
+              attributes.location.country
+            );
+          }
+          templateDataStorage.setItemCopy(_kx, JSON.stringify(klaviyo_user_data));
+
+          if (data.output === 'email') {
+            return klaviyo_user_data.email;
+          }
+
+          return klaviyo_user_data;
+        }
+      }
+
+      return undefined;
+    })
+    .catch(() => undefined);
 }
 
-if (_kx) {
-  if (templateDataStorage.getItemCopy(_kx)) {
-    const storedData = JSON.parse(templateDataStorage.getItemCopy(_kx));
+/*==============================================================================
+  Vendor related functions
+==============================================================================*/
 
-    if (data.output === 'email') {
-      return storedData.email;
+function parseKx() {
+  const urlSearchParams = (parseUrl(getEventData('page_location')) || {}).searchParams;
+  const kxFromUrl = urlSearchParams && urlSearchParams['_kx'];
+  if (kxFromUrl) return kxFromUrl;
+
+  const kxFromStapeCookie = getCookieValues('stape_klaviyo_kx')[0];
+  if (kxFromStapeCookie) return kxFromStapeCookie;
+
+  const klaIdCookie = getCookieValues('__kla_id')[0];
+  if (klaIdCookie) {
+    const klaId = JSON.parse(fromBase64(klaIdCookie) || '{}');
+    if (getType(klaId) === 'object' && klaId['$exchange_id']) {
+      return klaId['$exchange_id'];
     }
-
-    return storedData;
-  } else {
-    const url = 'https://a.klaviyo.com/api/profiles/?filter=equals(_kx,"' + enc(_kx) + '")';
-
-    return sendHttpGet(url, {
-      headers: {
-        Authorization: 'Klaviyo-API-Key ' + data.apiKey,
-        accept: 'application/json',
-        revision: API_VERSION
-      },
-      timeout: 3000
-    })
-      .then((result) => {
-        if (result.statusCode === 200) {
-          const responseBody = JSON.parse(result.body);
-          if (responseBody.data.length === 1) {
-            const attributes = responseBody.data[0].attributes;
-            const klaviyo_user_data = {
-              email: toLowerCaseIfDefined(attributes.email),
-              phone_number: attributes.phone_number,
-              address: [
-                {
-                  first_name: toLowerCaseIfDefined(attributes.first_name),
-                  last_name: toLowerCaseIfDefined(attributes.last_name)
-                }
-              ]
-            };
-            if (attributes.location) {
-              klaviyo_user_data.address[0].street = toLowerCaseIfDefined(
-                attributes.location.address1
-              );
-              klaviyo_user_data.address[0].city = toLowerCaseIfDefined(attributes.location.city);
-              klaviyo_user_data.address[0].postal_code = attributes.location.zip;
-              klaviyo_user_data.address[0].country = toLowerCaseIfDefined(
-                attributes.location.country
-              );
-            }
-            templateDataStorage.setItemCopy(_kx, JSON.stringify(klaviyo_user_data));
-
-            if (data.output === 'email') {
-              return klaviyo_user_data.email;
-            }
-
-            return klaviyo_user_data;
-          }
-        }
-
-        return undefined;
-      })
-      .catch(() => undefined);
   }
 }
-
-return undefined;
 
 /*==============================================================================
   Helpers
@@ -219,10 +229,6 @@ ___SERVER_PERMISSIONS___
               {
                 "type": 1,
                 "string": "page_location"
-              },
-              {
-                "type": 1,
-                "string": "event_name"
               }
             ]
           }
@@ -267,6 +273,10 @@ ___SERVER_PERMISSIONS___
               {
                 "type": 1,
                 "string": "_kx"
+              },
+              {
+                "type": 1,
+                "string": "__kla_id"
               }
             ]
           }
@@ -287,6 +297,9 @@ scenarios: []
 
 
 ___NOTES___
+
+2026-08-21 Change Notes:
+ - Add __kla_id cookie fallback for _kx identifier detection.
 
 2026-05-21 Change Notes:
  - Console logging removal.
