@@ -6,20 +6,21 @@ This Google Tag Manager Server-Side variable allows you to retrieve a user profi
 
 1.  **Identifier Detection**: The variable first looks for the `_kx` query parameter in the page URL.
 2.  **Fallback**: If the URL parameter is not present, it attempts to retrieve the identifier from the `stape_klaviyo_kx` cookie.
-3.  **Cache Check**: The variable checks the `templateDataStorage` to see if the user data for this identifier is already cached, preventing unnecessary API calls.
-4.  **API Request**: If no cache is found, it sends a GET request to the Klaviyo Profiles API.
-5.  **Output**: It returns either the user's email or a full user data object based on your configuration.
+3.  **Second Fallback**: If neither is present, it reads the `__kla_id` cookie set by Klaviyo's onsite JS, decodes it, and uses its `$exchange_id` as the identifier.
+4.  **Cache Check**: The variable checks the `templateDataStorage` to see if the user data for this identifier is already cached, preventing unnecessary API calls.
+5.  **API Request**: If no cache is found, it sends a GET request to the Klaviyo Profiles API.
+6.  **Output**: It returns either the user's email or a full user data object based on your configuration.
 
 ## Parameters
 
-- **Api Key**: Input your Klaviyo Private API Key. This is required to authorize the request.
+- **Private API Key**: Input your Klaviyo Private API Key. This is required to authorize the request. [Learn more](https://help.klaviyo.com/hc/en-us/articles/115005062267-How-to-Manage-Your-Account-s-API-Keys#find-your-api-keys1).
 - **Output**: Select the type of data to return:
   - _Email_: Returns only the user's email address string.
-  - _All user_data_: Returns a JSON object containing the user profile.
+  - _All User Data_: Returns a JSON object containing the user profile.
 
 ## Returned Data Structure
 
-If **All user_data** is selected, the variable returns an object containing the following attributes:
+If **All User Data** is selected, the variable returns an object containing the following attributes:
 
 ```json
 {
