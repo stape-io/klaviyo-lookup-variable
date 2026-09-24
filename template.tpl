@@ -629,6 +629,9 @@ setup: |-
 
 ___NOTES___
 
+2026-09-24 - Change Notes:
+  - Add "Skip API call for known email" option: when Output is Email, this is checked, and the provided Email Address is valid, the variable returns it (trimmed and lowercased) immediately, skipping identifier detection, cache and the API call.
+
 2026-08-21 Change Notes:
  - Add __kla_id cookie fallback for _kx identifier detection.
 
