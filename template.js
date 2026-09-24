@@ -12,6 +12,12 @@ const templateDataStorage = require('templateDataStorage');
 /*==============================================================================
 ==============================================================================*/
 
+const userProvidedValidEmail = isValidEmailAddress(data.userProvidedEmail);
+
+if (data.output === 'email' && data.skipApiCallForKnownEmail && userProvidedValidEmail) {
+  return toLowerCaseIfDefined(data.userProvidedEmail).trim();
+}
+
 const API_VERSION = '2026-07-15';
 const _kx = parseKx();
 
@@ -106,4 +112,9 @@ function toLowerCaseIfDefined(value) {
 function enc(data) {
   if (['null', 'undefined'].indexOf(getType(data)) !== -1) data = '';
   return encodeUriComponent(makeString(data));
+}
+
+function isValidEmailAddress(email) {
+  if (getType(email) !== 'string') return false;
+  return !!email.trim().match('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
 }

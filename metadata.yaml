@@ -1,6 +1,8 @@
 homepage: 'https://stape.io/'
 documentation: 'https://github.com/stape-io/klaviyo-lookup-variable'
 versions:
+  - sha: 639b058dcfb7ad1faa0359dc037bcddd04ebdb6d
+    changeNotes: Add support to providing an email address and skipping API call for valid email addresses.
   - sha: 60e199f40e17efe7b956b72cf0a9ef5f05a7d993
     changeNotes: Added fallback to __kla_id cookie when reading the Klaviyo Exchange ID value..
   - sha: 77d3bd2d296f525bed3cd751037ce682b5154b84

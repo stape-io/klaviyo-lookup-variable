@@ -4,6 +4,7 @@ This Google Tag Manager Server-Side variable allows you to retrieve a user profi
 
 ## How it works
 
+0.  **Known Email Shortcut** (optional): If **Output** is set to _Email_, **Skip API call for known email** is checked, and the provided **Email Address** is a valid email, the variable returns that email (trimmed and lowercased) right away. It skips the identifier lookup, the cache and the API call. Otherwise, it continues with the steps below.
 1.  **Identifier Detection**: The variable first looks for the `_kx` query parameter in the page URL.
 2.  **Fallback**: If the URL parameter is not present, it attempts to retrieve the identifier from the `stape_klaviyo_kx` cookie.
 3.  **Second Fallback**: If neither is present, it reads the `__kla_id` cookie set by Klaviyo's onsite JS, decodes it, and uses its `$exchange_id` as the identifier.
@@ -17,6 +18,8 @@ This Google Tag Manager Server-Side variable allows you to retrieve a user profi
 - **Output**: Select the type of data to return:
   - _Email_: Returns only the user's email address string.
   - _All User Data_: Returns a JSON object containing the user profile.
+- **Skip API call for known email** (only available when **Output** is _Email_): Check this box to provide an email you already know, such as an Event Data variable mapped to the user's email, and avoid the Klaviyo API call.
+  - **Email Address**: The email to return. It is trimmed and lowercased before it is returned, to match the format of emails fetched from Klaviyo. If the value isn't a string or doesn't look like a valid email address, the variable ignores it and falls back to the regular Klaviyo lookup.
 
 ## Returned Data Structure
 
