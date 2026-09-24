@@ -51,6 +51,40 @@ ___TEMPLATE_PARAMETERS___
       }
     ],
     "simpleValueType": true
+  },
+  {
+    "type": "CHECKBOX",
+    "name": "skipApiCallForKnownEmail",
+    "checkboxText": "Skip API call for known email",
+    "simpleValueType": true,
+    "enablingConditions": [
+      {
+        "paramName": "output",
+        "paramValue": "email",
+        "type": "EQUALS"
+      }
+    ],
+    "help": "Check this box to provide an email and skip the API call. If the input is not recognized as a valid email address the variable will behave normally and will perform the API call.",
+    "subParams": [
+      {
+        "type": "TEXT",
+        "name": "userProvidedEmail",
+        "displayName": "Email Address",
+        "simpleValueType": true,
+        "enablingConditions": [
+          {
+            "paramName": "skipApiCallForKnownEmail",
+            "paramValue": true,
+            "type": "EQUALS"
+          }
+        ],
+        "valueValidators": [
+          {
+            "type": "NON_EMPTY"
+          }
+        ]
+      }
+    ]
   }
 ]
 
@@ -70,6 +104,12 @@ const templateDataStorage = require('templateDataStorage');
 
 /*==============================================================================
 ==============================================================================*/
+
+const userProvidedValidEmail = isValidEmailAddress(data.userProvidedEmail);
+
+if (data.output === 'email' && data.skipApiCallForKnownEmail && userProvidedValidEmail) {
+  return toLowerCaseIfDefined(data.userProvidedEmail).trim();
+}
 
 const API_VERSION = '2026-07-15';
 const _kx = parseKx();
@@ -165,6 +205,11 @@ function toLowerCaseIfDefined(value) {
 function enc(data) {
   if (['null', 'undefined'].indexOf(getType(data)) !== -1) data = '';
   return encodeUriComponent(makeString(data));
+}
+
+function isValidEmailAddress(email) {
+  if (getType(email) !== 'string') return false;
+  return !!email.trim().match('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
 }
 
 
@@ -293,7 +338,293 @@ ___SERVER_PERMISSIONS___
 
 ___TESTS___
 
-scenarios: []
+scenarios:
+- name: '[Skip API] Returns the normalized user provided email without any lookup'
+  code: |-
+    [
+      { input: 'john.doe@example.com', expected: 'john.doe@example.com' },
+      { input: '  John.Doe+Tag@Example.COM  ', expected: 'john.doe+tag@example.com' },
+      { input: 'first_last%x-y@sub.domain.co.uk', expected: 'first_last%x-y@sub.domain.co.uk' }
+    ].forEach((scenario) => {
+      const copyMockData = createMockData({ userProvidedEmail: scenario.input });
+
+      const variableResult = runCode(copyMockData);
+
+      assertThat(variableResult).isEqualTo(scenario.expected);
+    });
+
+    assertApi('getEventData').wasNotCalled();
+    assertApi('getCookieValues').wasNotCalled();
+    assertApi('sendHttpGet').wasNotCalled();
+- name: '[Skip API] Returns the user provided email even when no Exchange ID is available'
+  code: |-
+    pageLocation = 'https://example.com/';
+
+    const variableResult = runCode(createMockData({ userProvidedEmail: 'john@example.com' }));
+
+    assertThat(variableResult).isEqualTo('john@example.com');
+    assertApi('sendHttpGet').wasNotCalled();
+- name: '[Skip API] Falls back to the API lookup when the user provided email is invalid'
+  code: |-
+    const scenarios = [
+      'not-an-email',
+      'john@example',
+      'john doe@example.com',
+      '@example.com',
+      '',
+      '   ',
+      'undefined',
+      'null',
+      undefined,
+      null,
+      123,
+      true,
+      { email: 'john@example.com' },
+      ['john@example.com']
+    ];
+
+    scenarios.forEach((input) => {
+      cleanup();
+
+      runCode(createMockData({ userProvidedEmail: input })).then((variableResult) => {
+        assertThat(variableResult).isEqualTo('john.doe@example.com');
+      });
+    });
+
+    callLater(() => {
+      assertThat(requestCount).isEqualTo(scenarios.length);
+    });
+- name: '[Skip API] Ignores the user provided email when the checkbox is unchecked'
+  code: |-
+    const copyMockData = createMockData({
+      skipApiCallForKnownEmail: false,
+      userProvidedEmail: 'stale@example.com'
+    });
+
+    runCode(copyMockData).then((variableResult) => {
+      assertThat(variableResult).isEqualTo('john.doe@example.com');
+    });
+
+    callLater(() => {
+      assertThat(requestCount).isEqualTo(1);
+    });
+- name: '[Skip API] Ignores the user provided email when output is All User Data'
+  code: |-
+    const copyMockData = createMockData({
+      output: 'user_data',
+      userProvidedEmail: 'john@example.com'
+    });
+
+    runCode(copyMockData).then((variableResult) => {
+      assertThat(variableResult).isEqualTo(expectedUserData);
+    });
+
+    callLater(() => {
+      assertThat(requestCount).isEqualTo(1);
+    });
+- name: '[API] Builds the request and returns the mapped user data'
+  code: |-
+    mock('sendHttpGet', (url, options) => {
+      requestCount++;
+      assertThat(url).isEqualTo('https://a.klaviyo.com/api/profiles/?filter=equals(_kx,"kx%20url")');
+      assertThat(options).isEqualTo({
+        headers: {
+          Authorization: 'Klaviyo-API-Key pk_test_123',
+          accept: 'application/json',
+          revision: '2026-07-15'
+        },
+        timeout: 3000
+      });
+      return Promise.create((resolve) => resolve({ statusCode: 200, body: JSON.stringify(apiResponse) }));
+    });
+
+    runCode(createMockData({ output: 'user_data' })).then((variableResult) => {
+      assertThat(variableResult).isEqualTo(expectedUserData);
+    });
+
+    callLater(() => {
+      assertThat(requestCount).isEqualTo(1);
+    });
+- name: '[API] Returns the lowercased email when output is Email'
+  code: |-
+    runCode(createMockData()).then((variableResult) => {
+      assertThat(variableResult).isEqualTo('john.doe@example.com');
+    });
+
+    callLater(() => {
+      assertThat(requestCount).isEqualTo(1);
+    });
+- name: '[API] Omits location fields when the profile has no location'
+  code: |-
+    const attributes = apiResponse.data[0].attributes;
+    Object.delete(attributes, 'location');
+
+    runCode(createMockData({ output: 'user_data' })).then((variableResult) => {
+      assertThat(variableResult).isEqualTo({
+        email: 'john.doe@example.com',
+        phone_number: '+15551234567',
+        address: [{ first_name: 'john', last_name: 'doe' }]
+      });
+    });
+- name: '[API] Caches the mapped user data under the Exchange ID'
+  code: |-
+    runCode(createMockData({ output: 'user_data' })).then(() => {
+      assertThat(JSON.parse(cache['kx url'])).isEqualTo(expectedUserData);
+    });
+- name: '[API] Returns undefined and caches nothing on unsuccessful lookups'
+  code: |-
+    [
+      () => Promise.create((resolve) => resolve({ statusCode: 401, body: '{}' })),
+      () => Promise.create((resolve) => resolve({ statusCode: 200, body: JSON.stringify({ data: [] }) })),
+      () => Promise.create((resolve) => resolve({
+        statusCode: 200,
+        body: JSON.stringify({ data: [apiResponse.data[0], apiResponse.data[0]] })
+      })),
+      () => Promise.create((resolve, reject) => reject({ reason: 'timed_out' }))
+    ].forEach((response) => {
+      mock('sendHttpGet', response);
+
+      runCode(createMockData({ output: 'user_data' })).then((variableResult) => {
+        assertThat(variableResult).isUndefined();
+      });
+    });
+
+    callLater(() => {
+      assertThat(cache).isEqualTo({});
+    });
+- name: '[Cache] Returns cached data without calling the API'
+  code: |-
+    cache['kx url'] = JSON.stringify(expectedUserData);
+
+    assertThat(runCode(createMockData())).isEqualTo('john.doe@example.com');
+    assertThat(runCode(createMockData({ output: 'user_data' }))).isEqualTo(expectedUserData);
+    assertApi('sendHttpGet').wasNotCalled();
+- name: '[Identifier] Falls back to the stape_klaviyo_kx cookie'
+  code: |-
+    pageLocation = 'https://example.com/?foo=bar';
+    cookies.stape_klaviyo_kx = ['kx-stape'];
+    cookies.__kla_id = [toBase64(JSON.stringify({ '$exchange_id': 'kx-kla' }))];
+
+    mock('sendHttpGet', (url) => {
+      assertThat(url).isEqualTo('https://a.klaviyo.com/api/profiles/?filter=equals(_kx,"kx-stape")');
+      return Promise.create((resolve) => resolve({ statusCode: 200, body: JSON.stringify(apiResponse) }));
+    });
+
+    runCode(createMockData()).then((variableResult) => {
+      assertThat(variableResult).isEqualTo('john.doe@example.com');
+    });
+- name: '[Identifier] Falls back to the Exchange ID in the __kla_id cookie'
+  code: |-
+    pageLocation = 'https://example.com/';
+    cookies.__kla_id = [toBase64(JSON.stringify({ '$exchange_id': 'kx-kla' }))];
+
+    mock('sendHttpGet', (url) => {
+      assertThat(url).isEqualTo('https://a.klaviyo.com/api/profiles/?filter=equals(_kx,"kx-kla")');
+      return Promise.create((resolve) => resolve({ statusCode: 200, body: JSON.stringify(apiResponse) }));
+    });
+
+    runCode(createMockData()).then((variableResult) => {
+      assertThat(variableResult).isEqualTo('john.doe@example.com');
+    });
+- name: '[Identifier] Returns undefined without calling the API when no Exchange ID is found'
+  code: |-
+    [
+      {},
+      { __kla_id: [toBase64(JSON.stringify({ '$referrer': 'x' }))] }
+    ].forEach((scenarioCookies) => {
+      pageLocation = 'https://example.com/';
+      cookies = scenarioCookies;
+
+      assertThat(runCode(createMockData())).isUndefined();
+    });
+
+    assertApi('sendHttpGet').wasNotCalled();
+setup: |-
+  const JSON = require('JSON');
+  const Promise = require('Promise');
+  const callLater = require('callLater');
+  const toBase64 = require('toBase64');
+  const Object = require('Object');
+
+  const assign = (target, source) => {
+    Object.keys(source).forEach((key) => {
+      target[key] = source[key];
+    });
+    return target;
+  };
+
+  const createMockData = (overrides) => {
+    return assign(
+      {
+        apiKey: 'pk_test_123',
+        output: 'email',
+        skipApiCallForKnownEmail: true,
+        userProvidedEmail: undefined
+      },
+      overrides || {}
+    );
+  };
+
+  const apiResponse = {
+    data: [
+      {
+        attributes: {
+          email: 'John.Doe@Example.com',
+          phone_number: '+15551234567',
+          first_name: 'John',
+          last_name: 'Doe',
+          location: {
+            address1: '123 Main St',
+            city: 'New York',
+            zip: '10001',
+            country: 'US'
+          }
+        }
+      }
+    ]
+  };
+
+  const expectedUserData = {
+    email: 'john.doe@example.com',
+    phone_number: '+15551234567',
+    address: [
+      {
+        first_name: 'john',
+        last_name: 'doe',
+        street: '123 main st',
+        city: 'new york',
+        postal_code: '10001',
+        country: 'us'
+      }
+    ]
+  };
+
+  let pageLocation = 'https://example.com/?_kx=kx%20url';
+  let cookies = {};
+  let cache = {};
+  let requestCount = 0;
+
+  const cleanup = () => {
+    cache = {};
+  };
+
+  mock('getEventData', (key) => {
+    if (key === 'page_location') return pageLocation;
+  });
+
+  mock('getCookieValues', (name) => cookies[name] || []);
+
+  mockObject('templateDataStorage', {
+    getItemCopy: (key) => cache[key],
+    setItemCopy: (key, value) => {
+      cache[key] = value;
+    }
+  });
+
+  mock('sendHttpGet', () => {
+    requestCount++;
+    return Promise.create((resolve) => resolve({ statusCode: 200, body: JSON.stringify(apiResponse) }));
+  });
 
 
 ___NOTES___
@@ -306,4 +637,5 @@ ___NOTES___
  - Update API version to 2026-04-15.
 
 Created on 17.10.2022 14.30.57
+
 
